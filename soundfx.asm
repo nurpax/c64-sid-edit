@@ -224,7 +224,7 @@ icount:
 
 // START NOTE FREQUENCY RANGE (268 to 64814 )
 ifrq:
-    .word 6000
+    .word 700
     .word 700
     .word 500// 6000
     .word 9000
