@@ -4,55 +4,13 @@
 
     .const sid = $D400
     .const raster = 50
+
+sound_init:
     lda #$0f
     sta $d418     // Select Filter Mode and Volume
-
-    lda #1
-    sta 649       // disable keyboard buffering
-
-    lda #0
-    sta 204       // turn cursor on during a GET
-
-    lda #127
-    sta 650       // no keys repeat
-    jsr soundinterrupts
-
-
-mainloop:
-    // PRESS A NUMBER FROM 0 TO 3 and 9 to quit
-_wait:
-    jsr $ffe4     // GETIN Get a byte from channel A=0 if buffer empty
-    beq _wait
-    eor #$30      // convert key numbet to a real number
-    cmp #9
-    beq _brk
-    cmp #4            // number you press must be less than 4
-    bcs _clearbuffer  // if number greater than 4 then jump to clear buffer
-    sta effect        // store in fx byte
-_clearbuffer:
-    lda #0
-    sta 198       // clear keyboard buffer
-    jmp _wait     // wait for next key
-_brk:
     rts
 
-soundinterrupts:
-    sei
-    lda #$01
-    sta $d01a      // vic interrupt mask register (imr)
-    lda #<intsoundcode
-    ldx #>intsoundcode
-    sta $0314      // irq address
-    stx $0315      // irq address
-    ldy #raster    // 251 raster position
-    sty $d012      // raster position
-    lda #$7f
-    sta $dc0d      // cia interrupt control register
-    lda $dc0d      // cia interrupt control register
-    cli
-    rts
-
-intsoundcode:
+sound_irq:
     ldy #0
     lda effect      // LOAD FX NUMBER
     cmp #128        // 128 MEANS NO NEW EFFECT NUMBER WAS ASK FOR

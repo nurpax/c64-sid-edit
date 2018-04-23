@@ -49,6 +49,14 @@
     sta res+1
 }
 
+// move two bytes from n1 to res
+.macro mov16imm(res, n1) {
+    lda #n1
+    sta res+0
+    lda #n1>>8
+    sta res+1
+}
+
 // add 2 16bit memory locations, store in res
 .macro add16(res, n1, n2) {
     clc
@@ -87,111 +95,19 @@
     .if (imm == 3) {
         add16(zptmp0, m, m)
         add16(m, zptmp0, m)
+    } else .if (imm == 40) {
+        add16(zptmp0, m, m)             // *2
+        add16(zptmp0, zptmp0, zptmp0)   // *4
+        add16(zptmp0, zptmp0, zptmp0)   // *8
+        add16(zptmp0, zptmp0, zptmp0)   // *16
+        add16(zptmp0, zptmp0, zptmp0)   // *32
+
+        add16(zptmp2, m, m)             // *2
+        add16(zptmp2, zptmp2, zptmp2)   // *4
+        add16(zptmp2, zptmp2, zptmp2)   // *8
+
+        add16(m, zptmp0, zptmp2)
     } else {
         .error "unsupported"
     }
-}
-
-.macro fixArchitectFontData(data) {
-    .for (var i = 0; i < 64; i++) {
-        .if (i == $20) {
-            .fill 8, 0
-        } else .if (i == $2c) { // ','
-            .byte %00000000
-            .byte %00000000
-            .byte %00000000
-            .byte %00000000
-            .byte %00000000
-            .byte %00110000
-            .byte %01100000
-            .byte %00000000
-        } else .if (i == $2e) { // '.'
-            .byte %00000000
-            .byte %00000000
-            .byte %00000000
-            .byte %00000000
-            .byte %00000000
-            .byte %01100000
-            .byte %01100000
-            .byte %00000000
-        } else {
-            .for (var c = 0; c < 8; c++) {
-                .byte data.get(i*8+c+2)
-            }
-        }
-    }
-    // $40
-    .fill 8, $ff
-    // $41
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000001
-    // $42
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %10000000
-    // $43
-    .byte %10000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    // $44
-    .byte %00000001
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    // $45
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %11111111
-    // $46
-    .byte %10000000
-    .byte %10000000
-    .byte %10000000
-    .byte %10000000
-    .byte %10000000
-    .byte %10000000
-    .byte %10000000
-    .byte %10000000
-    // $47
-    .byte %11111111
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    .byte %00000000
-    // $48
-    .byte %00000001
-    .byte %00000001
-    .byte %00000001
-    .byte %00000001
-    .byte %00000001
-    .byte %00000001
-    .byte %00000001
-    .byte %00000001
 }
