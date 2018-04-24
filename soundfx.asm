@@ -18,6 +18,14 @@ init: {
     rts
 }
 
+reset_voice: {
+    // See also ADSR bug:
+    // http://csdb.dk/forums/?roomid=11&topicid=110547
+    lda #$08
+    sta sidvregs+4
+    rts
+}
+
 // Call this from a raster IRQ
 play:
     ldy #0
@@ -28,7 +36,7 @@ play:
 // PLAY SOUNDS
 _playsounds:
     lda voiceparams     // CHECK IF SOUND IS STILL PLAYING
-    cmp #128           // 128 MEANS NO
+    cmp #128            // 128 MEANS NO
     beq _done
     jmp _continuesound
 _done:
@@ -107,9 +115,9 @@ _miss2:
     sta sid+24         // WRITE TO SID CHIP
 
     lda icreg,x        // LOAD VALUE FOR CONTROL REGISTER
-    sta sidvregs+4        // WRITE TO SID CHIP CONTROL REGISTER
+    sta sidvregs+4     // WRITE TO SID CHIP CONTROL REGISTER
     lda #0
-    sta voiceparams   // SET TO ZERO FOR SOUND RUNNING
+    sta voiceparams    // SET TO ZERO FOR SOUND RUNNING
     lda #128
     sta effect         // CLEAR THE FX NUMBER
     jmp _playsounds
@@ -308,7 +316,7 @@ ifilterh:
 ifiltercon:
     .byte 0
     .byte 0
-    .byte %11000010
+    .byte 0 // %11000010
     .byte 0
 
 // FILTERMODE
@@ -322,12 +330,12 @@ ifiltercon:
 ifiltermode:
     .byte 0
     .byte 0
-    .byte %00100000
+    .byte 0 // %00100000
     .byte 0
 
 // OVER WRITE SOUND VALUES WITH NEW SOUND VALUES 0=rewrite 1=not to rewrite
 iwrite:
-    .byte 1
-    .byte 1
     .byte 0
-    .byte 1
+    .byte 0
+    .byte 0
+    .byte 0

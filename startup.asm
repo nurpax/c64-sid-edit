@@ -14,10 +14,13 @@
 .const zparg3 = $2e
 .const zparg4 = $30
 
-.const EDIT_AT      = 0
-.const EDIT_DK      = 1
-.const EDIT_FRQ     = 2
-.const EDIT_PULSE   = 3
+.const EDIT_AT       = 0
+.const EDIT_DK       = 1
+.const EDIT_SUS      = 2
+.const EDIT_REL      = 3
+.const EDIT_DURATION = 4
+.const EDIT_FRQ      = 5
+.const EDIT_PULSE    = 6
 
 :BasicUpstart2(mainStartup)
 
@@ -67,18 +70,34 @@ infloop:
 
     cmp #'A'
     bne not_atk
-    jmp key_atk
+    lda #EDIT_AT
+    jmp save_edit_and_play
 not_atk:
-
     cmp #'D'
     bne not_dec
-    jmp key_dec
+    lda #EDIT_DK
+    jmp save_edit_and_play
 not_dec:
-
+    cmp #'S'
+    bne not_sus
+    lda #EDIT_SUS
+    jmp save_edit_and_play
+not_sus:
+    cmp #'R'
+    bne not_rel
+    lda #EDIT_REL
+    jmp save_edit_and_play
+not_rel:
     cmp #'F'
     bne not_frq
-    jmp key_frq
+    lda #EDIT_FRQ
+    jmp save_edit_and_play
 not_frq:
+    cmp #'L'
+    bne not_dur
+    lda #EDIT_DURATION
+    jmp save_edit_and_play
+not_dur:
 
     cmp #$9d      // cursor left is decrease value
     beq key_down
@@ -117,63 +136,74 @@ key_down:
     jsr key_up_down
     jmp playsound
 
+// assumes x=voice
+.macro addparam8(param, dir) {
+    clc
+    lda param,x
+    adc dir
+    sta param,x
+}
+
+// assumes x=voice
+.macro addparam16(param, dir) {
+    txa
+    asl
+    tax
+    clc
+    lda param,x
+    adc dir
+    sta param,x
+    inx
+    lda param,x
+    adc dir+1
+    sta param,x
+    txa
+    lsr
+    tax
+}
+
+key_number:
+    sta voice
+    jmp playsound
+
 key_up_down: {
+    ldx voice
     lda editing
     cmp #EDIT_AT
     bne not_at
-    ldx voice
-    lda atval,x
-    clc
-    adc zptmp0
-    sta atval,x
+    addparam8(atval, zptmp0)
     rts
 not_at:
     cmp #EDIT_DK
     bne not_dk
-    ldx voice
-    lda dkval,x
-    clc
-    adc zptmp0
-    sta dkval,x
+    addparam8(dkval, zptmp0)
     rts
 not_dk:
+    cmp #EDIT_SUS
+    bne not_sus
+    addparam8(susval, zptmp0)
+    rts
+not_sus:
+    cmp #EDIT_REL
+    bne not_rel
+    addparam8(relval, zptmp0)
+    rts
+not_rel:
     cmp #EDIT_FRQ
     bne not_frq
-
-    lda voice
-    asl
-    tax
-
-    clc
-    lda soundfx.ifrq,x
-    adc zptmp0
-    sta soundfx.ifrq,x
-    inx
-    lda soundfx.ifrq,x
-    adc zptmp0+1
-    sta soundfx.ifrq,x
+    addparam16(soundfx.ifrq, zptmp0)
     rts
 not_frq:
+    cmp #EDIT_DURATION
+    bne not_dur
+    addparam8(soundfx.icount, zptmp0)
+    rts
+not_dur:
     rts
 }
 
-key_atk:
-    lda #EDIT_AT
+save_edit_and_play:
     sta editing
-    jmp playsound
-
-key_dec:
-    lda #EDIT_DK
-    sta editing
-    jmp playsound
-
-key_frq:
-    lda #EDIT_FRQ
-    sta editing
-    jmp playsound
-
-key_number:
-    sta voice
     jmp playsound
 
 playsound:
@@ -182,10 +212,10 @@ playsound:
     // some voice values are mirrored in GUI code, so move from here to sound
     // player.
     ldx voice
-    lda atval,x
+    lda dkval,x
     and #$0f
     sta zptmp0
-    lda dkval,x
+    lda atval,x
     asl
     asl
     asl
@@ -193,10 +223,20 @@ playsound:
     ora zptmp0
     sta soundfx.iatdk,x
 
-    // See also ADSR bug:
-    // http://csdb.dk/forums/?roomid=11&topicid=110547
-    lda #$08
-    sta $d404
+    // some voice values are mirrored in GUI code, so move from here to sound
+    // player.
+    lda relval,x
+    and #$0f
+    sta zptmp0
+    lda susval,x
+    asl
+    asl
+    asl
+    asl
+    ora zptmp0
+    sta soundfx.isurl,x
+
+    jsr soundfx.reset_voice
 
     lda voice
     sta soundfx.effect
@@ -253,27 +293,11 @@ playsound:
 
 editing: .byte EDIT_AT
 
-voice: .byte 0
-atval: .byte 0, 0, 0, 0 // TODO add more maybe?
-dkval: .byte 0, 0, 0, 0
-
-nurpastr: .text "sid editor by nurpasoft 2018"
-nurpastr_end:
-
-voiceselstr: .text "voice"
-voiceselstr_end:
-
-frqstr: .text "frq"
-frqstr_end:
-
-pulsestr: .text "pulse"
-pulsestr_end:
-
-atstr: .text "atk"
-atstr_end:
-
-dkstr: .text "dec"
-dkstr_end:
+voice:  .byte 0
+atval:  .byte 4, 4, 4, 4 // TODO add more maybe?
+dkval:  .byte 4, 4, 4, 4
+susval: .byte 0, 0, 0, 0
+relval: .byte 0, 0, 0, 0
 
 .macro geteditcol(mode) {
     lda editing
@@ -305,6 +329,33 @@ nums: .byte 0, 1, 2, 3
     lda src+1, x
     sta dst+1
 }
+
+nurpastr: .text "sid editor by nurpasoft 2018"
+nurpastr_end:
+
+voiceselstr: .text "voice"
+voiceselstr_end:
+
+durationstr: .text "l duration"
+durationstr_end:
+
+frqstr: .text "f frq"
+frqstr_end:
+
+pulsestr: .text "p pulse"
+pulsestr_end:
+
+atstr: .text "a atk"
+atstr_end:
+
+dkstr: .text "d dec"
+dkstr_end:
+
+susstr: .text "s sustain"
+susstr_end:
+
+relstr: .text "r release"
+relstr_end:
 
 draw_gui:
     drawstringcol(0, 0, WHITE, nurpastr, nurpastr_end)
@@ -343,16 +394,15 @@ notselected:
     bne numloop
 
     .eval ypos = ypos + 2
-    drawstringcol(0, ypos, GRAY, frqstr, frqstr_end)
-
-    loadparam16(zparg4, soundfx.ifrq)
-    geteditcol(EDIT_FRQ)
-    drawhex16(12, ypos, zparg4)
+    drawstringcol(0, ypos, GRAY, durationstr, durationstr_end)
+    loadparam8(zparg4, soundfx.icount)
+    geteditcol(EDIT_DURATION)
+    drawhex8(12, ypos, zparg4)
 
     .eval ypos = ypos + 1
-    drawstringcol(0, ypos, GRAY, pulsestr, pulsestr_end)
-    loadparam16(zparg4, soundfx.ipulse)
-    geteditcol(EDIT_PULSE)
+    drawstringcol(0, ypos, GRAY, frqstr, frqstr_end)
+    loadparam16(zparg4, soundfx.ifrq)
+    geteditcol(EDIT_FRQ)
     drawhex16(12, ypos, zparg4)
 
     .eval ypos = ypos + 1
@@ -366,6 +416,24 @@ notselected:
     loadparam8(zparg4, dkval)
     geteditcol(EDIT_DK)
     drawhex4(12, ypos, zparg4)
+
+    .eval ypos = ypos + 1
+    drawstringcol(0, ypos, GRAY, susstr, susstr_end)
+    loadparam8(zparg4, susval)
+    geteditcol(EDIT_SUS)
+    drawhex4(12, ypos, zparg4)
+
+    .eval ypos = ypos + 1
+    drawstringcol(0, ypos, GRAY, relstr, relstr_end)
+    loadparam8(zparg4, relval)
+    geteditcol(EDIT_REL)
+    drawhex4(12, ypos, zparg4)
+
+    .eval ypos = ypos + 1
+    drawstringcol(0, ypos, GRAY, pulsestr, pulsestr_end)
+    loadparam16(zparg4, soundfx.ipulse)
+    geteditcol(EDIT_PULSE)
+    drawhex16(12, ypos, zparg4)
 
     rts
 
