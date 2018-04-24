@@ -196,9 +196,9 @@ icount:
 
 // START NOTE FREQUENCY RANGE (268 to 64814 )
 ifrq:
-    .word 700
-    .word 700
-    .word 500// 6000
+    .word $ff0
+    .word $7ff
+    .word $200
     .word 9000
 
 // PULSE NOTE FREQUENCY

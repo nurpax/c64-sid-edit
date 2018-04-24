@@ -12,6 +12,7 @@
 .const zparg1 = $2a
 .const zparg2 = $2c
 .const zparg3 = $2e
+.const zparg4 = $30
 
 .const EDIT_AT      = 0
 .const EDIT_DK      = 1
@@ -120,24 +121,37 @@ key_up_down: {
     lda editing
     cmp #EDIT_AT
     bne not_at
-    lda atval
+    ldx voice
+    lda atval,x
     clc
     adc zptmp0
-    sta atval
+    sta atval,x
     rts
 not_at:
     cmp #EDIT_DK
     bne not_dk
-    lda dkval
+    ldx voice
+    lda dkval,x
     clc
     adc zptmp0
-    sta dkval
+    sta dkval,x
     rts
 not_dk:
     cmp #EDIT_FRQ
     bne not_frq
-    .const DIR = 00
-    add16(soundfx.ifrq, soundfx.ifrq, zptmp0)
+
+    lda voice
+    asl
+    tax
+
+    clc
+    lda soundfx.ifrq,x
+    adc zptmp0
+    sta soundfx.ifrq,x
+    inx
+    lda soundfx.ifrq,x
+    adc zptmp0+1
+    sta soundfx.ifrq,x
     rts
 not_frq:
     rts
@@ -167,23 +181,24 @@ playsound:
 
     // some voice values are mirrored in GUI code, so move from here to sound
     // player.
-    lda atval
+    ldx voice
+    lda atval,x
     and #$0f
     sta zptmp0
-    lda dkval
+    lda dkval,x
     asl
     asl
     asl
     asl
     ora zptmp0
-    sta soundfx.iatdk
+    sta soundfx.iatdk,x
 
     // See also ADSR bug:
     // http://csdb.dk/forums/?roomid=11&topicid=110547
     lda #$08
     sta $d404
 
-    lda #0
+    lda voice
     sta soundfx.effect
     jmp infloop
 
@@ -239,8 +254,8 @@ playsound:
 editing: .byte EDIT_AT
 
 voice: .byte 0
-atval: .byte 0
-dkval: .byte 0
+atval: .byte 0, 0, 0, 0 // TODO add more maybe?
+dkval: .byte 0, 0, 0, 0
 
 nurpastr: .text "sid editor by nurpasoft 2018"
 nurpastr_end:
@@ -274,6 +289,22 @@ done:
 }
 
 nums: .byte 0, 1, 2, 3
+
+.macro loadparam8(dst, src) {
+    ldx voice
+    lda src, x
+    sta dst+0
+}
+
+.macro loadparam16(dst, src) {
+    lda voice
+    asl
+    tax
+    lda src, x
+    sta dst+0
+    lda src+1, x
+    sta dst+1
+}
 
 draw_gui:
     drawstringcol(0, 0, WHITE, nurpastr, nurpastr_end)
@@ -313,23 +344,28 @@ notselected:
 
     .eval ypos = ypos + 2
     drawstringcol(0, ypos, GRAY, frqstr, frqstr_end)
+
+    loadparam16(zparg4, soundfx.ifrq)
     geteditcol(EDIT_FRQ)
-    drawhex16(12, ypos, soundfx.ifrq)
+    drawhex16(12, ypos, zparg4)
 
     .eval ypos = ypos + 1
     drawstringcol(0, ypos, GRAY, pulsestr, pulsestr_end)
+    loadparam16(zparg4, soundfx.ipulse)
     geteditcol(EDIT_PULSE)
-    drawhex16(12, ypos, soundfx.ipulse)
+    drawhex16(12, ypos, zparg4)
 
     .eval ypos = ypos + 1
     drawstringcol(0, ypos, GRAY, atstr, atstr_end)
+    loadparam8(zparg4, atval)
     geteditcol(EDIT_AT)
-    drawhex4(12, ypos, atval)
+    drawhex4(12, ypos, zparg4)
 
     .eval ypos = ypos + 1
     drawstringcol(0, ypos, GRAY, dkstr, dkstr_end)
+    loadparam8(zparg4, dkval)
     geteditcol(EDIT_DK)
-    drawhex4(12, ypos, dkval)
+    drawhex4(12, ypos, zparg4)
 
     rts
 
