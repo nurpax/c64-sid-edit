@@ -44,9 +44,8 @@ mainStartup:
     lda #0
     sta 204       // turn cursor on during a GET
 
-    // no repeat for any keys
-    // TODO add other repeater keys maybe?
-    lda #64
+    // no repeat for some keys (but leaves cursor key repeat)
+    lda #0
     sta 650
 
     sei
@@ -65,26 +64,40 @@ infloop:
     jsr SCNKEY  //get key
     jsr GETIN   //put key in A
 
+    cmp #'A'
+    bne not_atk
+    jmp key_atk
+not_atk:
+
+    cmp #'D'
+    bne not_dec
+    jmp key_dec
+not_dec:
+
+    cmp #'F'
+    bne not_frq
+    jmp key_frq
+not_frq:
+
+    cmp #$9d      // cursor left is decrease value
+    beq key_down
+    cmp #$1d      // cursor right is increase value
+    beq key_up
+
+    cmp #$5b      // non-repeating
+    beq key_down
+    cmp #$5d      // non-repeating
+    beq key_up
+
     cmp #' '
     bne not_space
     jmp playsound
 not_space:
 
-    cmp #'A'
-    beq key_atk
-
-    cmp #'D'
-    beq key_dec
-
-    cmp #'F'
-    beq key_frq
-
-    cmp #$9d      // cursor left is decrease value
-    beq key_down
-
-    cmp #$1d      // cursor right is increase value
-    beq key_up
-
+    sec
+    sbc #'1'
+    cmp #4
+    bcc key_number
     jmp infloop
 
 key_up:
@@ -103,7 +116,7 @@ key_down:
     jsr key_up_down
     jmp playsound
 
-key_up_down:
+key_up_down: {
     lda editing
     cmp #EDIT_AT
     bne not_at
@@ -128,6 +141,7 @@ not_dk:
     rts
 not_frq:
     rts
+}
 
 key_atk:
     lda #EDIT_AT
@@ -142,6 +156,10 @@ key_dec:
 key_frq:
     lda #EDIT_FRQ
     sta editing
+    jmp playsound
+
+key_number:
+    sta voice
     jmp playsound
 
 playsound:
@@ -220,11 +238,15 @@ playsound:
 
 editing: .byte EDIT_AT
 
+voice: .byte 0
 atval: .byte 0
 dkval: .byte 0
 
 nurpastr: .text "sid editor by nurpasoft 2018"
 nurpastr_end:
+
+voiceselstr: .text "voice"
+voiceselstr_end:
 
 frqstr: .text "frq"
 frqstr_end:
@@ -251,24 +273,63 @@ done:
     lda #WHITE
 }
 
+nums: .byte 0, 1, 2, 3
+
 draw_gui:
     drawstringcol(0, 0, WHITE, nurpastr, nurpastr_end)
 
-    drawstringcol(0, 3, GRAY, frqstr, frqstr_end)
+    .var ypos = 3
+    drawstringcol(0, ypos, GRAY, voiceselstr, voiceselstr_end)
+    lda #0
+    sta $10
+    sta $11
+numloop:
+    ldy #ypos
+
+    lda $10
+    ldx #$00
+    cmp voice
+    bne notselected
+    ldx #$80
+notselected:
+    stx zparg3
+
+    asl
+    asl
+    clc
+    adc #12
+    tax
+
+    lda #LIGHT_BLUE
+    sta zparg0
+    mov16imm(zparg1, nums)
+    add16(zparg1, zparg1, $10)
+    jsr draw_hex4
+
+    inc $10
+    lda $10
+    cmp #4
+    bne numloop
+
+    .eval ypos = ypos + 2
+    drawstringcol(0, ypos, GRAY, frqstr, frqstr_end)
     geteditcol(EDIT_FRQ)
-    drawhex16(12, 3, soundfx.ifrq)
+    drawhex16(12, ypos, soundfx.ifrq)
 
-    drawstringcol(0, 4, GRAY, pulsestr, pulsestr_end)
+    .eval ypos = ypos + 1
+    drawstringcol(0, ypos, GRAY, pulsestr, pulsestr_end)
     geteditcol(EDIT_PULSE)
-    drawhex16(12, 4, soundfx.ipulse)
+    drawhex16(12, ypos, soundfx.ipulse)
 
-    drawstringcol(0, 5, GRAY, atstr, atstr_end)
+    .eval ypos = ypos + 1
+    drawstringcol(0, ypos, GRAY, atstr, atstr_end)
     geteditcol(EDIT_AT)
-    drawhex4(12, 5, atval)
+    drawhex4(12, ypos, atval)
 
-    drawstringcol(0, 6, GRAY, dkstr, dkstr_end)
+    .eval ypos = ypos + 1
+    drawstringcol(0, ypos, GRAY, dkstr, dkstr_end)
     geteditcol(EDIT_DK)
-    drawhex4(12, 6, dkval)
+    drawhex4(12, ypos, dkval)
 
     rts
 
