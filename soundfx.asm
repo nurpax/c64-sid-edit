@@ -2,15 +2,21 @@
 // MALCOLM BAMBER
 // CODE IN C64ASM
 
+.filenamespace soundfx
+
+
     .const sid = $D400
     .const raster = 50
 
-sound_init:
+// Initialize sounds
+init: {
     lda #$0f
     sta $d418     // Select Filter Mode and Volume
     rts
+}
 
-sound_irq:
+// Call this from a raster IRQ
+play:
     ldy #0
     lda effect      // LOAD FX NUMBER
     cmp #128        // 128 MEANS NO NEW EFFECT NUMBER WAS ASK FOR

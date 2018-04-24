@@ -33,7 +33,7 @@ mainStartup:
     lda #WHITE
     jsr clearcolor
     jsr clearscreen
-    jsr sound_init
+    jsr soundfx.init
 
     lda #0
     sta 204       // turn cursor on during a GET
@@ -77,38 +77,38 @@ playsound:
     sta $d404
 
     lda #0
-    sta effect
+    sta soundfx.effect
     jmp infloop
 
 key_atk:
-    lda iatdk
+    lda soundfx.iatdk
     clc
     adc #$10
-    sta iatdk
+    sta soundfx.iatdk
     jmp playsound
 
 key_dec:
-    lda iatdk
+    lda soundfx.iatdk
     clc
     adc #1
     and #$0f
     tax
     stx zptmp4
 
-    lda iatdk
+    lda soundfx.iatdk
     and #$f0
     ora zptmp4
-    sta iatdk
+    sta soundfx.iatdk
     jmp playsound
 
 frq_down: {
     .const DIR = -100
-    add16_imm16(ifrq, DIR & 255, DIR >> 8)
+    add16_imm16(soundfx.ifrq, DIR & 255, DIR >> 8)
     jmp playsound
 }
 frq_up: {
     .const DIR = 100
-    add16_imm16(ifrq, DIR & 255, DIR >> 8)
+    add16_imm16(soundfx.ifrq, DIR & 255, DIR >> 8)
     jmp playsound
 }
 
@@ -157,13 +157,13 @@ draw_gui:
     drawstring(0, 0, WHITE, nurpastr, nurpastr_end)
 
     drawstring(0, 3, WHITE, frqstr, frqstr_end)
-    drawhex16(12, 3, WHITE, ifrq)
+    drawhex16(12, 3, WHITE, soundfx.ifrq)
 
     drawstring(0, 4, WHITE, pulsestr, pulsestr_end)
-    drawhex16(12, 4, WHITE, ipulse)
+    drawhex16(12, 4, WHITE, soundfx.ipulse)
 
     drawstring(0, 5, WHITE, atdkstr, atdkstr_end)
-    drawhex8(12, 5, WHITE, iatdk)
+    drawhex8(12, 5, WHITE, soundfx.iatdk)
 
     rts
 
@@ -332,7 +332,7 @@ musicIrqStart: {
     DebugRaster(4)
 //    jsr music.play
 
-    jsr sound_irq
+    jsr soundfx.play
 
     DebugRaster(0)
     :EndIRQ(partIrqStart, partIrqStartLine,false)
