@@ -4,9 +4,12 @@
 
 .filenamespace soundfx
 
-
     .const sid = $D400
     .const raster = 50
+
+    .const voice = 2
+    .const voffs = voice*7
+    .const sidvregs = sid + voffs
 
 // Initialize sounds
 init: {
@@ -24,38 +27,19 @@ play:
     jmp _resetsound // RESET SOUND DATA
 // PLAY SOUNDS
 _playsounds:
-    ldy #0
-_loop:
-    lda voicearray,y   // CHECK IF SOUND IS STILL PLAYING
+    lda voiceparams     // CHECK IF SOUND IS STILL PLAYING
     cmp #128           // 128 MEANS NO
-    beq _nextvoice     // TRY NEXT SOUND VOICE
+    beq _done
     jmp _continuesound
-_nextvoice:
-    iny                // SET Y TO NEXT SOUND VIOCE
-    iny
-    iny
-    iny
-    iny
-    iny
-    iny
-    cpy #21            // HAVE WE DONE ALL FOUR VOICES
-    beq _irqjmp        // YES
-    jmp _loop          // NO
-
-_irqjmp:
-//    lda #$ff           // QUIT OUT AND WAIT
-//    sta $D019          // VIC Interrupt Request Register (IRR)
-//    jmp $ea31          // quit out
+_done:
     rts
 
 // OVER WRITE SOUND DATA FROM ARRAY TO SID CHIP
+// A=which effect to play
 _resetsound:
-    tax                // COPY EFFECT NUMBER  TO X FOR ARRAY VALUES OF SOUND
-    lda ivoice,x       // GET WHICH VOICE NUMBER TO USE
-    tay                // STORE VOICE NUMBER IN Y
-
+    tax
     // RUN FROM HERE IS SOUND IS NOT PLAYING YET
-    lda voicearray,y   // HAS SOUND STOPPED
+    lda voiceparams   // HAS SOUND STOPPED
     cmp #128
     beq _miss2         // SOUND NOT PLAYING
 
@@ -65,50 +49,47 @@ _resetsound:
     beq _playsounds    // GO TO PLAY SOUNDS
 
 _miss2:
-    lda ivoice,x       // GET WHICH VOICE TO USE
-    sta voicearray+1,y // SET VOICEARRAY TO VOICE NUMBER BEING USED
-
     // word sized:
     // ifrq, istep, ipulse
     txa
     asl
     tax
     lda istep,x        // GET LOW BYTE STEP FREQUENCY PER CYCLE
-    sta voicearray+2,y // SET VOICEARRAY TO FREQUENCY NUMBER BEING USED
+    sta voiceparams+2 // SET voiceparams TO FREQUENCY NUMBER BEING USED
     lda istep+1,x      // GET HI BYTE STEP FREQUENCY PER CYCLE
-    sta voicearray+3,y // SET VOICEARRAY TO FREQUENCY NUMBER BEING USED
+    sta voiceparams+3 // SET voiceparams TO FREQUENCY NUMBER BEING USED
     txa
     lsr
     tax
 
     lda istepway,x     // GET IF WE ARE ADDING OR SUBBING STEP FREQUENCY
-    sta voicearray+4,y // SET VOICEARRAY TO STEPWAY BEING USED
+    sta voiceparams+4 // SET voiceparams TO STEPWAY BEING USED
 
     lda icount,x       // GET HOW LONG SOUND SHOULD PLAY FOR
-    sta voicearray+5,y // SET VOICEARRAY TO HOW LONG SOUND WILL PLAY FOR
+    sta voiceparams+5 // SET voiceparams TO HOW LONG SOUND WILL PLAY FOR
 
     txa
     asl
     tax
     lda ifrq,x         // LOAD LOW BYTE FREQUENCY VALUE
-    sta sid,y          // WRITE TO SID CHIP
+    sta sidvregs          // WRITE TO SID CHIP
     lda ifrq+1,x       // GET HIGH BYTE FREQUENCY VALUE
-    sta sid+1,y        // WRITE TO SID CHIP
+    sta sidvregs+1        // WRITE TO SID CHIP
 
     lda ipulse,x       // LOAD LOW BYTE PULSE FREQUENCY VALUE
-    sta sid+2,y        // WRITE TO SID CHIP
+    sta sidvregs+2        // WRITE TO SID CHIP
 
     lda ipulse+1,x     // LOAD HIGH BYTE PULSE FREQUENCY VALUE
-    sta sid+3,y        // WRITE TO SID CHIP
+    sta sidvregs+3        // WRITE TO SID CHIP
     txa
     lsr
     tax
 
     lda iatdk,x        // LOAD THE ATDK VALUES
-    sta sid+5,y        // WRITE TO SID CHIP
+    sta sidvregs+5        // WRITE TO SID CHIP
 
     lda isurl,x        // LOAD THE SUSAIN /RELEASE VALUES
-    sta sid+6,y        // WRITE TO SID CHIP
+    sta sidvregs+6        // WRITE TO SID CHIP
 
     // SET FILTER MODE
     lda ifilterl       // LOW BYTE OF FILTER FREQUENCY VALUE
@@ -126,86 +107,71 @@ _miss2:
     sta sid+24         // WRITE TO SID CHIP
 
     lda icreg,x        // LOAD VALUE FOR CONTROL REGISTER
-    sta sid+4,y        // WRITE TO SID CHIP CONTROL REGISTER
+    sta sidvregs+4        // WRITE TO SID CHIP CONTROL REGISTER
     lda #0
-    sta voicearray,y   // SET TO ZERO FOR SOUND RUNNING
+    sta voiceparams   // SET TO ZERO FOR SOUND RUNNING
     lda #128
     sta effect         // CLEAR THE FX NUMBER
     jmp _playsounds
 
 // CONTINUE WITH SOUND FX
 _continuesound:
-    lda voicearray+5,y  // HOW LONG SOUND SHOULD PLAY FOR
+    lda voiceparams+5  // HOW LONG SOUND SHOULD PLAY FOR
     cmp #0              // SHOULD SOUND STOP
     bne _minusone       // NO
     lda #0
-    sta sid+4,y         // CLEAR SID VOICE CONTROL REGISTER
+    sta sidvregs+4         // CLEAR SID VOICE CONTROL REGISTER
     lda #128
-    sta voicearray,y    // SET THE FX NUMBER WE WHERE PLAYING BACK TO 128
-    jmp _nextvoice      // QUIT BACK TO PLAY SOUNDS
+    sta voiceparams    // SET THE FX NUMBER WE WHERE PLAYING BACK TO 128
+    jmp _done      // QUIT BACK TO PLAY SOUNDS
 
 _minusone:
-    sec                 // REMOVE ONE FROM VOICEARRAY+5
-    lda voicearray+5,y
+    sec                 // REMOVE ONE FROM voiceparams+5
+    lda voiceparams+5
     sbc #1
-    sta voicearray+5,y  // STORE IT
+    sta voiceparams+5
 
-    lda voicearray+2,y  // CHECK STEP VALUE
+    lda voiceparams+2  // CHECK STEP VALUE
     cmp #0              // IS IT ZERO
     bne _stepit         // NO SO GO TO STEP FREQUENCY VALUE
-    jmp _nextvoice      // QUIT BACK TO PLAY SOUNDS
+    jmp _done      // QUIT BACK TO PLAY SOUNDS
 
+// TODO TODO this doesnt work
 _stepit:
     // CHANGE FREQ VALUE OF SOUND
-    lda voicearray+4,y  // CHECK IF WE ARE MINUSING OR ADDING A STEP VALUE TO NOTE
+    lda voiceparams+4  // CHECK IF WE ARE MINUSING OR ADDING A STEP VALUE TO NOTE
     cmp #1              // ARE WE ADDING THE STEP FREQUENCY VALUE
     bne _subit          // NO THEN WE MUST MINUS THE STEP FREQUENCY VALUE
     clc
     lda sid,y           // GET CURRENT LOW BYTE FREQUENCY VALUE WE ARE USING
-    adc voicearray+2,y  // ADD LOW BYTE STEP FREQUENCY VALUE
-    sta sid,y           // WRITE NEW LOW BYTE FREQUENCY BACK TO SID
-    lda sid+1,y         // GET CURRENT HIGH BYTE FREQUENCY VALUE WE ARE USING
-    adc voicearray+3,y  // ADD HIGH BYTE STEP FREQUENCY VALUE
-    sta sid+1,y         // WRITE NEW HIGH BYTE FREQUENCY BACK TO SID
-    jmp _nextvoice      // QUIT BACK TO PLAY SOUNDS
+    adc voiceparams+2  // ADD LOW BYTE STEP FREQUENCY VALUE
+    sta sidvregs           // WRITE NEW LOW BYTE FREQUENCY BACK TO SID
+    lda sidvregs+1         // GET CURRENT HIGH BYTE FREQUENCY VALUE WE ARE USING
+    adc voiceparams+3  // ADD HIGH BYTE STEP FREQUENCY VALUE
+    sta sidvregs+1         // WRITE NEW HIGH BYTE FREQUENCY BACK TO SID
+    jmp _done      // QUIT BACK TO PLAY SOUNDS
 
+// TODO TODO this doesnt work
 _subit:
     sec
     lda sid,y           // GET CURRENT LOW BYTE FREQUENCY VALUE WE ARE USING
-    sbc voicearray+2,y  // MINUS LOW BYTE STEP FREQUENCY VALUE
+    sbc voiceparams+2,y  // MINUS LOW BYTE STEP FREQUENCY VALUE
     sta sid,y           // WRITE NEW LOW BYTE FREQUENCY BACK TO SID
     lda sid+1,y         // GET CURRENT HIGH BYTE FREQUENCY VALUE WE ARE USING
-    sbc voicearray+3,y  // MINUS HIGH BYTE STEP FREQUENCY VALUE
+    sbc voiceparams+3,y  // MINUS HIGH BYTE STEP FREQUENCY VALUE
     sta sid+1,y         // WRITE NEW HIGH BYTE FREQUENCY BACK TO SID
-    jmp _nextvoice      // QUIT BACK TO PLAY SOUNDS
+    jmp _done      // QUIT BACK TO PLAY SOUNDS
 
 
 effect:
     .byte 128     // WERE FX NUMBER IS WRITEN TO
 
 // VOICE 1
-voicearray:
+voiceparams:
     .byte 128     // 0   128 MEANING NO SOUND FX IS BEING USED
     .byte 0       // 1   VOICE NUMBER BEING USED
     .byte 0       // 2   LOW BYTE FREQUENCY VALUE
     .byte 0       // 3       HIGH BYTE FREQUENCY VALUE
-    .byte 0       // 4   ARE WE ADDING A STEP FREQUENCY VALUE
-    .byte 0       // 5   HOW LONG SOUND WILL PLAY FOR
-    .byte 0       // 6   FREE
-// VOICE 2
-    .byte 128     // 0   128 MEANING NO SOUND FX IS BEING USED
-    .byte 0       // 1   VOICE NUMBER BEING USED
-    .byte 0       // 2   LOW BYTE FREQUENCY VALUE
-    .byte 0       // 3       HIGH BYTE FREQUENCY VALUE
-    .byte 0       // 4   ARE WE ADDING A STEP FREQUENCY VALUE
-    .byte 0       // 5   HOW LONG SOUND WILL PLAY FOR
-    .byte 0       // 6   FREE
-
-// VOICE 3
-    .byte 128     // 0   128 MEANING NO SOUND FX IS BEING USED
-    .byte 0       // 1   VOICE NUMBER BEING USED
-    .byte 0       // 2   LOW BYTE FREQUENCY VALUE
-    .byte 0       // 3   HIGH BYTE FREQUENCY VALUE
     .byte 0       // 4   ARE WE ADDING A STEP FREQUENCY VALUE
     .byte 0       // 5   HOW LONG SOUND WILL PLAY FOR
     .byte 0       // 6   FREE
