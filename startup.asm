@@ -21,6 +21,7 @@
 .const EDIT_DURATION = 4
 .const EDIT_FRQ      = 5
 .const EDIT_PULSE    = 6
+.const EDIT_WAVEFORM = 7
 
 :BasicUpstart2(mainStartup)
 
@@ -100,11 +101,32 @@ not_frq:
     lda #EDIT_DURATION
     jmp save_edit_and_play
 not_dur:
-
+    cmp #'W'
+    bne not_wav
+    lda #EDIT_WAVEFORM
+    jmp save_edit_and_play
+not_wav:
     cmp #'X'
     bne not_loadsavefile
     jmp load_and_play
 not_loadsavefile:
+
+    cmp #$85
+    bne not_f1
+    togglevoicebit(soundfx.icreg, %00010000)
+not_f1:
+    cmp #$89
+    bne not_f2
+    togglevoicebit(soundfx.icreg, %00100000)
+not_f2:
+    cmp #$86
+    bne not_f3
+    togglevoicebit(soundfx.icreg, %01000000)
+not_f3:
+    cmp #$8a
+    bne not_f4
+    togglevoicebit(soundfx.icreg, %10000000)
+not_f4:
 
     cmp #$9d      // cursor left is decrease value
     beq key_down
@@ -143,6 +165,13 @@ key_down:
     jsr key_up_down
     jmp playsound
 
+.macro togglevoicebit(v, b) {
+    ldx voice
+    lda v, x
+    eor #b
+    sta v, x
+    jmp playsound
+}
 // assumes x=voice
 .macro addparam8(param, dir) {
     clc
@@ -261,6 +290,16 @@ loop:
     jmp playsound
 }
 
+.macro drawstringinv(x, y, str, str_end) {
+    ldx #x
+    ldy #y
+    sta zparg0
+    mov16imm(zparg1, str)
+    lda #(str_end - str)
+    sta zparg2
+    jsr draw_str
+}
+
 .macro drawstring(x, y, str, str_end) {
     ldx #x
     ldy #y
@@ -362,6 +401,11 @@ done:
 
 nums: .byte 1, 2, 3, 4, 5, 6, 7, 8
 
+.macro loadparam8acc(src) {
+    ldx voice
+    lda src, x
+}
+
 .macro loadparam8(dst, src) {
     ldx voice
     lda src, x
@@ -405,7 +449,15 @@ susstr_end:
 relstr: .text "r release"
 relstr_end:
 
-draw_gui:
+waveformstr: .text "w waveform"
+waveformstr_end:
+
+triastr: .text "tria"
+sawtstr: .text "sawt"
+pulsstr: .text "puls"
+noisstr: .text "nois"
+
+draw_gui: {
     drawstringcol(0, 0, WHITE, nurpastr, nurpastr_end)
 
     .var ypos = 3
@@ -482,8 +534,34 @@ notselected:
     geteditcol(EDIT_PULSE)
     drawhex16(12, ypos, zparg4)
 
-    rts
+    .eval ypos = ypos + 1
+    geteditcol(EDIT_WAVEFORM)
+    lda #GREY
+    drawstringinv(0, ypos, waveformstr, waveformstr_end)
 
+    .var strs = List().add(triastr, sawtstr, pulsstr, noisstr)
+    .for (var i = 0; i < 4; i++) {
+        loadparam8acc(soundfx.icreg)
+        ldx #(%00010000 << i)
+        jsr getinv_if_bit_set
+        drawstringinv(12 + i*5, ypos, strs.get(i), strs.get(i)+4)
+    }
+    rts
+}
+
+getinv_if_bit_set: {
+    stx zparg0
+    and zparg0
+    beq zero
+    lda #$80
+    jmp done
+zero:
+    lda #0
+done:
+    sta zparg3
+    lda #WHITE
+    rts
+}
 
 // zparg0 = color
 // zparg1 = str

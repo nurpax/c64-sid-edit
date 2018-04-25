@@ -279,7 +279,7 @@ istepway:
 iatdk:
     .byte $06
     .byte $25
-    .byte $5a // $bf
+    .byte $5a
     .byte $7f
     .byte $7f
     .byte $7f
@@ -292,7 +292,7 @@ iatdk:
 isurl:
     .byte $10
     .byte $f3
-    .byte $f4 //$31
+    .byte $f4
     .byte $f3
     .byte $f3
     .byte $f3
