@@ -2,6 +2,8 @@
 
 C64 SID sound editor written in 6510 assembly.
 
+<img width="588" alt="screen shot 2018-04-25 at 11 55 10 pm" src="https://user-images.githubusercontent.com/297823/39272587-fee3461a-48e4-11e8-82d3-c60d1753f9b8.png">
+
 ## How to run:
 
 Compile `startup.asm` and load into VICE C64 emulator.
