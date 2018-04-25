@@ -123,7 +123,7 @@ not_space:
 
     sec
     sbc #'1'
-    cmp #4
+    cmp #8
     bcc key_number
     jmp infloop
 
@@ -323,8 +323,8 @@ loop:
     tax
 }
 
-reload_uimirror:
-    .for (var i = 0; i < 4; i++) {
+reload_uimirror: {
+    .for (var i = 0; i < 8; i++) {
         loadnibble(soundfx.iatdk+i)
         stx dkval+i
         sty atval+i
@@ -333,6 +333,7 @@ reload_uimirror:
         sty susval+i
     }
     rts
+}
 
 saved_sounds:
 .import binary "sounds.bin"
@@ -341,10 +342,10 @@ saved_sounds_end:
 editing: .byte EDIT_AT
 
 voice:  .byte 0
-atval:  .byte 4, 4, 4, 4 // TODO add more maybe?
-dkval:  .byte 4, 4, 4, 4
-susval: .byte 0, 0, 0, 0
-relval: .byte 0, 0, 0, 0
+atval:  .fill 8, 0
+dkval:  .fill 8, 0
+susval: .fill 8, 0
+relval: .fill 8, 0
 
 .macro geteditcol(mode) {
     lda editing
@@ -359,7 +360,7 @@ done:
     lda #WHITE
 }
 
-nums: .byte 0, 1, 2, 3
+nums: .byte 1, 2, 3, 4, 5, 6, 7, 8
 
 .macro loadparam8(dst, src) {
     ldx voice
@@ -424,7 +425,6 @@ notselected:
     stx zparg3
 
     asl
-    asl
     clc
     adc #12
     tax
@@ -433,11 +433,11 @@ notselected:
     sta zparg0
     mov16imm(zparg1, nums)
     add16(zparg1, zparg1, $10)
-    jsr draw_hex4
+    jsr draw_digit4
 
     inc $10
     lda $10
-    cmp #4
+    cmp #8
     bne numloop
 
     .eval ypos = ypos + 2
@@ -521,6 +521,9 @@ done:
     rts
 }
 
+digit4str: .text "0"
+digit4str_end:
+
 hex4str: .text "$0"
 hex4str_end:
 
@@ -531,6 +534,46 @@ hex16str: .text "$0000"
 hex16str_end:
 
 hextbl: .text "0123456789abcdef"
+
+// zparg0 = color
+// zparg1 = number address
+draw_digit4:
+    stx zptmp4
+    sty zptmp4+1
+    ldy #0
+    lda (zparg1), y
+    and #15
+    tax
+    lda hextbl, x
+    sta digit4str
+    ldx zptmp4
+    ldy zptmp4+1
+
+    mov16imm(zparg1, digit4str)
+    lda #1
+    sta zparg2
+    jsr draw_str
+    rts
+
+// zparg0 = color
+// zparg1 = number address
+draw_hex4:
+    stx zptmp4
+    sty zptmp4+1
+    ldy #0
+    lda (zparg1), y
+    and #15
+    tax
+    lda hextbl, x
+    sta hex4str+1
+    ldx zptmp4
+    ldy zptmp4+1
+
+    mov16imm(zparg1, hex4str)
+    lda #(hex4str_end - hex4str)
+    sta zparg2
+    jsr draw_str
+    rts
 
 // zparg0 = color
 // zparg1 = number address
@@ -559,26 +602,6 @@ draw_hex8:
 
     mov16imm(zparg1, hex8str)
     lda #(hex8str_end - hex8str)
-    sta zparg2
-    jsr draw_str
-    rts
-
-// zparg0 = color
-// zparg1 = number address
-draw_hex4:
-    stx zptmp4
-    sty zptmp4+1
-    ldy #0
-    lda (zparg1), y
-    and #15
-    tax
-    lda hextbl, x
-    sta hex4str+1
-    ldx zptmp4
-    ldy zptmp4+1
-
-    mov16imm(zparg1, hex4str)
-    lda #(hex4str_end - hex4str)
     sta zparg2
     jsr draw_str
     rts

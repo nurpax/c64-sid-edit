@@ -1,6 +1,12 @@
-// PLAYSOUND FX
-// MALCOLM BAMBER
-// CODE IN C64ASM
+// Sound effect player
+//
+// Originally pulled from
+// http://codebase64.org/doku.php?id=base:sound_fx_player but it's mostly a
+// rewrite now.
+//
+// The original had a bunch of bugs.  For example, it was accessing the ifrq
+// array with a stride of one byte so it really only worked with the first
+// sound.
 
 .filenamespace soundfx
 
@@ -27,36 +33,36 @@ reset_voice: {
 }
 
 // Call this from a raster IRQ
-play:
+play: {
     ldy #0
     lda effect      // LOAD FX NUMBER
     cmp #128        // 128 MEANS NO NEW EFFECT NUMBER WAS ASK FOR
-    beq _playsounds // PLAY SOUNDS
-    jmp _resetsound // RESET SOUND DATA
+    beq playsounds // PLAY SOUNDS
+    jmp resetsound // RESET SOUND DATA
 // PLAY SOUNDS
-_playsounds:
+playsounds:
     lda voiceparams     // CHECK IF SOUND IS STILL PLAYING
     cmp #128            // 128 MEANS NO
-    beq _done
-    jmp _continuesound
-_done:
+    beq done
+    jmp continuesound
+done:
     rts
 
 // OVER WRITE SOUND DATA FROM ARRAY TO SID CHIP
 // A=which effect to play
-_resetsound:
+resetsound:
     tax
     // RUN FROM HERE IS SOUND IS NOT PLAYING YET
     lda voiceparams   // HAS SOUND STOPPED
     cmp #128
-    beq _miss2         // SOUND NOT PLAYING
+    beq miss2         // SOUND NOT PLAYING
 
     // CHECK IF WE CAN OVER WRITE A SOUND THAT IS ALLREADY PLAYING
     lda iwrite,x       // LOAD REWRITE FLAG
     cmp #1             // IF ONE THEN WE MUST WAIT FOR SOUND TO STOP
-    beq _playsounds    // GO TO PLAY SOUNDS
+    beq playsounds    // GO TO PLAY SOUNDS
 
-_miss2:
+miss2:
     // word sized:
     // ifrq, istep, ipulse
     txa
@@ -120,20 +126,20 @@ _miss2:
     sta voiceparams    // SET TO ZERO FOR SOUND RUNNING
     lda #128
     sta effect         // CLEAR THE FX NUMBER
-    jmp _playsounds
+    jmp playsounds
 
 // CONTINUE WITH SOUND FX
-_continuesound:
+continuesound:
     lda voiceparams+5  // HOW LONG SOUND SHOULD PLAY FOR
     cmp #0              // SHOULD SOUND STOP
-    bne _minusone       // NO
+    bne minusone       // NO
     lda #0
     sta sidvregs+4         // CLEAR SID VOICE CONTROL REGISTER
     lda #128
     sta voiceparams    // SET THE FX NUMBER WE WHERE PLAYING BACK TO 128
-    jmp _done      // QUIT BACK TO PLAY SOUNDS
+    jmp done      // QUIT BACK TO PLAY SOUNDS
 
-_minusone:
+minusone:
     sec                 // REMOVE ONE FROM voiceparams+5
     lda voiceparams+5
     sbc #1
@@ -141,15 +147,15 @@ _minusone:
 
     lda voiceparams+2  // CHECK STEP VALUE
     cmp #0              // IS IT ZERO
-    bne _stepit         // NO SO GO TO STEP FREQUENCY VALUE
-    jmp _done      // QUIT BACK TO PLAY SOUNDS
+    bne stepit         // NO SO GO TO STEP FREQUENCY VALUE
+    jmp done      // QUIT BACK TO PLAY SOUNDS
 
 // TODO TODO this doesnt work
-_stepit:
+stepit:
     // CHANGE FREQ VALUE OF SOUND
     lda voiceparams+4  // CHECK IF WE ARE MINUSING OR ADDING A STEP VALUE TO NOTE
     cmp #1              // ARE WE ADDING THE STEP FREQUENCY VALUE
-    bne _subit          // NO THEN WE MUST MINUS THE STEP FREQUENCY VALUE
+    bne subit          // NO THEN WE MUST MINUS THE STEP FREQUENCY VALUE
     clc
     lda sid,y           // GET CURRENT LOW BYTE FREQUENCY VALUE WE ARE USING
     adc voiceparams+2  // ADD LOW BYTE STEP FREQUENCY VALUE
@@ -157,10 +163,10 @@ _stepit:
     lda sidvregs+1         // GET CURRENT HIGH BYTE FREQUENCY VALUE WE ARE USING
     adc voiceparams+3  // ADD HIGH BYTE STEP FREQUENCY VALUE
     sta sidvregs+1         // WRITE NEW HIGH BYTE FREQUENCY BACK TO SID
-    jmp _done      // QUIT BACK TO PLAY SOUNDS
+    jmp done      // QUIT BACK TO PLAY SOUNDS
 
 // TODO TODO this doesnt work
-_subit:
+subit:
     sec
     lda sid,y           // GET CURRENT LOW BYTE FREQUENCY VALUE WE ARE USING
     sbc voiceparams+2,y  // MINUS LOW BYTE STEP FREQUENCY VALUE
@@ -168,8 +174,8 @@ _subit:
     lda sid+1,y         // GET CURRENT HIGH BYTE FREQUENCY VALUE WE ARE USING
     sbc voiceparams+3,y  // MINUS HIGH BYTE STEP FREQUENCY VALUE
     sta sid+1,y         // WRITE NEW HIGH BYTE FREQUENCY BACK TO SID
-    jmp _done      // QUIT BACK TO PLAY SOUNDS
-
+    jmp done      // QUIT BACK TO PLAY SOUNDS
+}
 
 effect:
     .byte 128     // WERE FX NUMBER IS WRITEN TO
@@ -187,22 +193,16 @@ voiceparams:
     .byte 0       // 5   HOW LONG SOUND WILL PLAY FOR
     .byte 0       // 6   FREE
 
-// WHICH VOICE
-// VOICE 1   0
-// VOICE 2   7
-// VOICE 3   14
-ivoice:
-    .byte 0   // PLAYERS GUN SHOT
-    .byte 7   // ENEMY SHOOT AT PLAYER
-    .byte 14  // EXPLOSION
-    .byte 0
-
 // HOW LONG SOUND WILL PLAY FOR
 icount:
     .byte 25
     .byte 15
     .byte 25
     .byte 25
+    .byte 32
+    .byte 32
+    .byte 32
+    .byte 32
 
 
 // START NOTE FREQUENCY RANGE (268 to 64814 )
@@ -211,12 +211,20 @@ ifrq:
     .word $7ff
     .word $200
     .word 9000
+    .word 5000
+    .word 6000
+    .word 7000
+    .word 8000
 
 // PULSE NOTE FREQUENCY
 // $D402 IS THE LOW BYTE OF THE PULSE WIDTH (LPW = 0 THROUGH 255).
 // $D403 IS THE HIGH 4 BITS (HPW = 0 THROUGH 15).
 ipulse:
     .word 3000
+    .word 0
+    .word 0
+    .word 0
+    .word 0
     .word 0
     .word 0
     .word 0
@@ -227,12 +235,20 @@ istep:
     .word 0
     .word 0
     .word 0
+    .word 0
+    .word 0
+    .word 0
+    .word 0
 
 // PLUS=1 OR MINUS=2
 istepway:
     .byte 0
     .byte 0
     .byte 2
+    .byte 0
+    .byte 0
+    .byte 0
+    .byte 0
     .byte 0
 
 //SID-ADR-Table:
@@ -265,6 +281,10 @@ iatdk:
     .byte $25
     .byte $5a // $bf
     .byte $7f
+    .byte $7f
+    .byte $7f
+    .byte $7f
+    .byte $7f
 
 // SUSTAIN / RELEASE CYCLE CONTROL
 // Bits 7-4 Select Sustain Cycle Duration: 0-15
@@ -273,6 +293,10 @@ isurl:
     .byte $10
     .byte $f3
     .byte $f4 //$31
+    .byte $f3
+    .byte $f3
+    .byte $f3
+    .byte $f3
     .byte $f3
 
 // WAVEFORM/GATE BIT SET
@@ -293,6 +317,10 @@ icreg:
     .byte 33
     .byte 129
     .byte 17
+    .byte 17
+    .byte 17
+    .byte 17
+    .byte 17
 
 
 //$D415  FILTER CUTOFF FREQUENCY: LOW-NYBBLE (BITS 2-0) (0 to 7)
@@ -301,9 +329,17 @@ ifilterl:
     .byte 0
     .byte 0
     .byte 0
+    .byte 0
+    .byte 0
+    .byte 0
+    .byte 0
 
 //$D416  FILTER CUTOFF FREQUENCY: HIGH-BYTE
 ifilterh:
+    .byte 0
+    .byte 0
+    .byte 0
+    .byte 0
     .byte 0
     .byte 0
     .byte 0
@@ -321,6 +357,10 @@ ifiltercon:
     .byte 0
     .byte 0 // %11000010
     .byte 0
+    .byte 0
+    .byte 0
+    .byte 0
+    .byte 0
 
 // FILTERMODE
 // $D418 SELECT FILTER MODE AND VOLUME
@@ -335,9 +375,17 @@ ifiltermode:
     .byte 0
     .byte 0 // %00100000
     .byte 0
+    .byte 0
+    .byte 0
+    .byte 0
+    .byte 0
 
 // OVER WRITE SOUND VALUES WITH NEW SOUND VALUES 0=rewrite 1=not to rewrite
 iwrite:
+    .byte 0
+    .byte 0
+    .byte 0
+    .byte 0
     .byte 0
     .byte 0
     .byte 0
