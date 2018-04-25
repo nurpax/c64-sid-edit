@@ -101,6 +101,11 @@ not_frq:
     lda #EDIT_DURATION
     jmp save_edit_and_play
 not_dur:
+    cmp #'P'
+    bne not_pulse
+    lda #EDIT_PULSE
+    jmp save_edit_and_play
+not_pulse:
     cmp #'W'
     bne not_wav
     lda #EDIT_WAVEFORM
@@ -230,6 +235,11 @@ not_rel:
     addparam16(soundfx.ifrq, zptmp0)
     rts
 not_frq:
+    cmp #EDIT_PULSE
+    bne not_pulse
+    addparam16(soundfx.ipulse, zptmp0)
+    rts
+not_pulse:
     cmp #EDIT_DURATION
     bne not_dur
     addparam8(soundfx.icount, zptmp0)
