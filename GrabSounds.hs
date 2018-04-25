@@ -4,7 +4,7 @@ import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as B
 import Data.Monoid ((<>))
 import Data.Char (ord)
-import System.IO (Handle, IOMode(..), SeekMode(..), withBinaryFile, hSetBinaryMode, hSeek)
+import System.IO (Handle, IOMode(..), SeekMode(..), withBinaryFile, hSeek)
 
 assert :: Bool -> String -> IO ()
 assert True  _   = return ()
@@ -35,7 +35,6 @@ readModules h = do
     hSeek h RelativeSeek size
     readModules h
 
-
 readMagic :: Handle -> IO ()
 readMagic h = do
   magic <- B.hGet h 19
@@ -55,6 +54,4 @@ readMagic h = do
   return ()
 
 main :: IO ()
-main = do
-  withBinaryFile "snapshot.vsf" ReadMode $ \h -> do
-    readMagic h
+main = withBinaryFile "snapshot.vsf" ReadMode readMagic
