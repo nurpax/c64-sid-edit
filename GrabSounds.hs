@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import Data.ByteString.Char8 (ByteString)
-import qualified Data.ByteString.Char8 as B
+import Data.Binary.Get
+import Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Lazy.Char8 as B
 import Data.Monoid ((<>))
 import Data.Char (ord)
 import System.IO (Handle, IOMode(..), SeekMode(..), withBinaryFile, hSeek)
@@ -21,6 +22,27 @@ bytesToInt bs = fromIntegral (b0 + b1*256 + b2*65536 + b3*65536*256)
 showByte :: ByteString -> ByteString
 showByte = B.pack . show . ord . B.head
 
+dumpSounds :: ByteString -> IO ()
+dumpSounds ram = do
+  save (runGet getSounds ram)
+  where
+    getSounds = do
+      skip (0x3000-2)
+      paramLen <- getWord16le
+      getLazyByteString (fromIntegral paramLen)
+    save bytes = do
+      let filename = "sounds.bin"
+      putStrLn ("writing sound data to " <> filename)
+      B.writeFile "sounds.bin" bytes
+
+readC64RAM :: Handle -> IO ()
+readC64RAM h = do
+  B.putStrLn "Reading C64MEM"
+  hSeek h RelativeSeek 4 -- skip header bytes
+  ramBytes <- B.hGet h 0x10000
+  dumpSounds ramBytes
+  hSeek h RelativeSeek 15 -- skip footer bytes
+
 readModules :: Handle -> IO ()
 readModules h = do
   moduleName <- B.hGet h 16
@@ -32,8 +54,14 @@ readModules h = do
     B.putStrLn ("Module version: " <> showByte vmajor <> "." <> showByte vminor)
     size <- ((+) (-22) . bytesToInt) <$> B.hGet h 4
     putStrLn ("content size: " <> show size)
-    hSeek h RelativeSeek size
-    readModules h
+    readModule (B.takeWhile (\c -> c /= '\0') moduleName) size
+  where
+    readModule "C64MEM" _ = do
+      readC64RAM h
+      readModules h
+    readModule _modname size = do
+      hSeek h RelativeSeek size
+      readModules h
 
 readMagic :: Handle -> IO ()
 readMagic h = do

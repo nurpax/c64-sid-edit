@@ -174,6 +174,9 @@ _subit:
 effect:
     .byte 128     // WERE FX NUMBER IS WRITEN TO
 
+* = $3000-2
+sound_len: .word sound_end - sound_begin
+sound_begin:
 // VOICE 1
 voiceparams:
     .byte 128     // 0   128 MEANING NO SOUND FX IS BEING USED
@@ -339,3 +342,4 @@ iwrite:
     .byte 0
     .byte 0
     .byte 0
+sound_end:

@@ -40,6 +40,8 @@
 mainStartup:
 * = mainStartup "Main Startup"
 
+    jsr reload_uimirror
+
     lda #GREY
     jsr clearcolor
     jsr clearscreen
@@ -98,6 +100,11 @@ not_frq:
     lda #EDIT_DURATION
     jmp save_edit_and_play
 not_dur:
+
+    cmp #'X'
+    bne not_loadsavefile
+    jmp load_and_play
+not_loadsavefile:
 
     cmp #$9d      // cursor left is decrease value
     beq key_down
@@ -242,6 +249,18 @@ playsound:
     sta soundfx.effect
     jmp infloop
 
+load_and_play: {
+    ldx #0
+loop:
+    lda saved_sounds,x
+    sta soundfx.sound_begin,x
+    inx
+    cpx #(soundfx.sound_end - soundfx.sound_begin)
+    bne loop
+    jsr reload_uimirror
+    jmp playsound
+}
+
 .macro drawstring(x, y, str, str_end) {
     ldx #x
     ldy #y
@@ -290,6 +309,34 @@ playsound:
     mov16imm(zparg1, numaddr)
     jsr draw_hex16
 }
+
+// store result in y (7-4), x (3-0)
+.macro loadnibble(addr) {
+    lda addr
+    lsr
+    lsr
+    lsr
+    lsr
+    tay
+    lda addr
+    and #$0f
+    tax
+}
+
+reload_uimirror:
+    .for (var i = 0; i < 4; i++) {
+        loadnibble(soundfx.iatdk+i)
+        stx dkval+i
+        sty atval+i
+        loadnibble(soundfx.isurl+i)
+        stx relval+i
+        sty susval+i
+    }
+    rts
+
+saved_sounds:
+.import binary "sounds.bin"
+saved_sounds_end:
 
 editing: .byte EDIT_AT
 
