@@ -17,6 +17,9 @@
     .const voffs = voice*7
     .const sidvregs = sid + voffs
 
+    .const pstep = 2
+    .const pfreq = 6
+
 // Initialize sounds
 init: {
     lda #$0f
@@ -68,27 +71,29 @@ miss2:
     txa
     asl
     tax
-    lda istep,x        // GET LOW BYTE STEP FREQUENCY PER CYCLE
-    sta voiceparams+2 // SET voiceparams TO FREQUENCY NUMBER BEING USED
-    lda istep+1,x      // GET HI BYTE STEP FREQUENCY PER CYCLE
-    sta voiceparams+3 // SET voiceparams TO FREQUENCY NUMBER BEING USED
+    lda istep,x
+    sta voiceparams+pstep
+    lda istep+1,x
+    sta voiceparams+pstep+1
     txa
     lsr
     tax
 
-    lda istepway,x     // GET IF WE ARE ADDING OR SUBBING STEP FREQUENCY
-    sta voiceparams+4 // SET voiceparams TO STEPWAY BEING USED
+    lda istepway,x
+    sta voiceparams+4
 
-    lda icount,x       // GET HOW LONG SOUND SHOULD PLAY FOR
-    sta voiceparams+5 // SET voiceparams TO HOW LONG SOUND WILL PLAY FOR
+    lda icount,x
+    sta voiceparams+5
 
     txa
     asl
     tax
-    lda ifrq,x         // LOAD LOW BYTE FREQUENCY VALUE
-    sta sidvregs          // WRITE TO SID CHIP
-    lda ifrq+1,x       // GET HIGH BYTE FREQUENCY VALUE
-    sta sidvregs+1        // WRITE TO SID CHIP
+    lda ifrq,x
+    sta voiceparams+pfreq
+    sta sidvregs
+    lda ifrq+1,x
+    sta voiceparams+pfreq+1
+    sta sidvregs+1
 
     lda ipulse,x       // LOAD LOW BYTE PULSE FREQUENCY VALUE
     sta sidvregs+2        // WRITE TO SID CHIP
@@ -153,27 +158,29 @@ minusone:
 // TODO TODO this doesnt work
 stepit:
     // CHANGE FREQ VALUE OF SOUND
-    lda voiceparams+4  // CHECK IF WE ARE MINUSING OR ADDING A STEP VALUE TO NOTE
-    cmp #1              // ARE WE ADDING THE STEP FREQUENCY VALUE
-    bne subit          // NO THEN WE MUST MINUS THE STEP FREQUENCY VALUE
+    lda voiceparams+4
+    cmp #1
+    bne subit
     clc
-    lda sid,y           // GET CURRENT LOW BYTE FREQUENCY VALUE WE ARE USING
-    adc voiceparams+2  // ADD LOW BYTE STEP FREQUENCY VALUE
-    sta sidvregs           // WRITE NEW LOW BYTE FREQUENCY BACK TO SID
-    lda sidvregs+1         // GET CURRENT HIGH BYTE FREQUENCY VALUE WE ARE USING
-    adc voiceparams+3  // ADD HIGH BYTE STEP FREQUENCY VALUE
-    sta sidvregs+1         // WRITE NEW HIGH BYTE FREQUENCY BACK TO SID
-    jmp done      // QUIT BACK TO PLAY SOUNDS
+    lda voiceparams+pfreq
+    adc voiceparams+pstep
+    sta voiceparams+pfreq
+    sta sidvregs
+    lda voiceparams+pfreq+1
+    adc voiceparams+pstep+1
+    sta voiceparams+pfreq+1
+    sta sidvregs+1
+    jmp done
 
 // TODO TODO this doesnt work
 subit:
     sec
-    lda sid,y           // GET CURRENT LOW BYTE FREQUENCY VALUE WE ARE USING
-    sbc voiceparams+2,y  // MINUS LOW BYTE STEP FREQUENCY VALUE
-    sta sid,y           // WRITE NEW LOW BYTE FREQUENCY BACK TO SID
-    lda sid+1,y         // GET CURRENT HIGH BYTE FREQUENCY VALUE WE ARE USING
-    sbc voiceparams+3,y  // MINUS HIGH BYTE STEP FREQUENCY VALUE
-    sta sid+1,y         // WRITE NEW HIGH BYTE FREQUENCY BACK TO SID
+    lda voiceparams+pfreq
+    sbc voiceparams+2
+    sta sidvregs
+    lda voiceparams+pfreq+1
+    sbc voiceparams+3
+    sta sidvregs+1
     jmp done      // QUIT BACK TO PLAY SOUNDS
 }
 
@@ -187,11 +194,12 @@ sound_begin:
 voiceparams:
     .byte 128     // 0   128 MEANING NO SOUND FX IS BEING USED
     .byte 0       // 1   VOICE NUMBER BEING USED
-    .byte 0       // 2   LOW BYTE FREQUENCY VALUE
-    .byte 0       // 3       HIGH BYTE FREQUENCY VALUE
+    .byte 0       // 2   frequency step
+    .byte 0       // 3   frequency step
     .byte 0       // 4   ARE WE ADDING A STEP FREQUENCY VALUE
     .byte 0       // 5   HOW LONG SOUND WILL PLAY FOR
-    .byte 0       // 6   FREE
+    .byte 0       // 6   current frequency
+    .byte 0       // 7   current frequency
 
 // HOW LONG SOUND WILL PLAY FOR
 icount:
@@ -234,7 +242,7 @@ istep:
     .word 0
     .word 0
     .word 0
-    .word 0
+    .word 100
     .word 0
     .word 0
     .word 0
@@ -244,8 +252,8 @@ istep:
 istepway:
     .byte 0
     .byte 0
-    .byte 2
     .byte 0
+    .byte 1
     .byte 0
     .byte 0
     .byte 0

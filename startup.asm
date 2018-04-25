@@ -22,6 +22,7 @@
 .const EDIT_FRQ      = 5
 .const EDIT_PULSE    = 6
 .const EDIT_WAVEFORM = 7
+.const EDIT_STEP     = 8
 
 :BasicUpstart2(mainStartup)
 
@@ -30,11 +31,18 @@
 //----------------------------------------------------------
 //              Variables
 //----------------------------------------------------------
-.var            debug = true
+.var            debug = false
 
 .label          partIrqStartLine = $14
 .label          musicIrqStartLine = $30
 
+.macro editkey(keycode, editval) {
+    cmp #keycode
+    bne not_code
+    lda #editval
+    jmp save_edit_and_play
+not_code:
+}
 //----------------------------------------------------------
 //              Main Startup Code
 //----------------------------------------------------------
@@ -71,46 +79,16 @@ infloop:
     jsr SCNKEY  //get key
     jsr GETIN   //put key in A
 
-    cmp #'A'
-    bne not_atk
-    lda #EDIT_AT
-    jmp save_edit_and_play
-not_atk:
-    cmp #'D'
-    bne not_dec
-    lda #EDIT_DK
-    jmp save_edit_and_play
-not_dec:
-    cmp #'S'
-    bne not_sus
-    lda #EDIT_SUS
-    jmp save_edit_and_play
-not_sus:
-    cmp #'R'
-    bne not_rel
-    lda #EDIT_REL
-    jmp save_edit_and_play
-not_rel:
-    cmp #'F'
-    bne not_frq
-    lda #EDIT_FRQ
-    jmp save_edit_and_play
-not_frq:
-    cmp #'L'
-    bne not_dur
-    lda #EDIT_DURATION
-    jmp save_edit_and_play
-not_dur:
-    cmp #'P'
-    bne not_pulse
-    lda #EDIT_PULSE
-    jmp save_edit_and_play
-not_pulse:
-    cmp #'W'
-    bne not_wav
-    lda #EDIT_WAVEFORM
-    jmp save_edit_and_play
-not_wav:
+    editkey('A', EDIT_AT)
+    editkey('D', EDIT_DK)
+    editkey('S', EDIT_SUS)
+    editkey('R', EDIT_REL)
+    editkey('F', EDIT_FRQ)
+    editkey('L', EDIT_DURATION)
+    editkey('P', EDIT_PULSE)
+    editkey('Z', EDIT_STEP)
+    editkey('W', EDIT_WAVEFORM)
+
     cmp #'X'
     bne not_loadsavefile
     jmp load_and_play
@@ -240,6 +218,11 @@ not_frq:
     addparam16(soundfx.ipulse, zptmp0)
     rts
 not_pulse:
+    cmp #EDIT_STEP
+    bne not_step
+    addparam16(soundfx.istep, zptmp0)
+    rts
+not_step:
     cmp #EDIT_DURATION
     bne not_dur
     addparam8(soundfx.icount, zptmp0)
@@ -282,6 +265,7 @@ playsound:
     ora zptmp0
     sta soundfx.isurl,x
 
+    // TODO this fixed some
     jsr soundfx.reset_voice
 
     lda voice
@@ -467,6 +451,9 @@ sawtstr: .text "sawt"
 pulsstr: .text "puls"
 noisstr: .text "nois"
 
+stepstr: .text "z step"
+stepstr_end:
+
 draw_gui: {
     drawstringcol(0, 0, WHITE, nurpastr, nurpastr_end)
 
@@ -556,6 +543,13 @@ notselected:
         jsr getinv_if_bit_set
         drawstringinv(12 + i*5, ypos, strs.get(i), strs.get(i)+4)
     }
+
+    // These are purely SW parameters for the soundfx player.
+    .eval ypos = ypos + 2
+    drawstringcol(0, ypos, GRAY, stepstr, stepstr_end)
+    loadparam16(zparg4, soundfx.istep)
+    geteditcol(EDIT_STEP)
+    drawhex16(12, ypos, zparg4)
     rts
 }
 
@@ -772,18 +766,17 @@ framecount: .byte 0
 
 //----------------------------------------------------------
 partIrqStart: {
-                lda #0
-                sta $d020
-                sta $d021
+    lda #0
+    sta $d020
+    sta $d021
 
-                inc framecount
+    inc framecount
 
-                :EndIRQ(musicIrqStart,musicIrqStartLine,false)
+    :EndIRQ(musicIrqStart,musicIrqStartLine,false)
 }
 
 musicIrqStart: {
     DebugRaster(4)
-//    jsr music.play
 
     jsr soundfx.play
 
