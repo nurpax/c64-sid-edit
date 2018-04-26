@@ -21,7 +21,7 @@ x64 sidedit.prg
 
 Most keyboard shortcuts (like F for freq, A for attack, etc.) are shown in the UI.
 
-Use [f1]-[f4] to select waveforms.
+Use F1-F4 to select waveforms.
 
 Press 'X' to load "snapshot saved" sounds from `sounds.bin`.  Note that you need to recompile the editor if you update sounds.bin and want them available in the editor.
 
