@@ -17,6 +17,14 @@ java cml.kickass.KickAssembler startup.asm -o sidedit.prg
 x64 sidedit.prg
 ```
 
+## Keyboard shortcuts
+
+Most keyboard shortcuts (like F for freq, A for attack, etc.) are shown in the UI.
+
+Use [f1]-[f4] to select waveforms.
+
+Press 'X' to load "snapshot saved" sounds from `sounds.bin`.  Note that you need to recompile the editor if you update sounds.bin and want them available in the editor.
+
 ## How to save and use edited sounds
 
 This program doesn't have a "save" feature.  However, when running in VICE, you can save a snapshot of the C64 state.  This way you can save and load different sounds.  To use the edited sounds in your own program, you need to extract the sound data from a VICE RAM snapshot.  Here's how to do these steps:
