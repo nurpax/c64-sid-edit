@@ -32,7 +32,7 @@ This program doesn't have a "save" feature.  However, when running in VICE, you 
 1. Run the editor.  You can load previously edited sound data by loading in a VICE snapshot.
 2. Edit sounds.
 3. Save a snapshot (on Mac, press F12 to open VICE menu, Select "Snapshot", hit "Quicksave snapshot.svf".)
-4. `snapshot.svg` now contains full machine state, including C64 RAM.
+4. `snapshot.svf` now contains full machine state, including C64 RAM.
 5. Extract sounds from snapshot.svf: run "stack runghc GrabSounds.hs".  This will load `snapshot.svf` and store the edited sound parameters into sounds.bin.
 6. Import the sounds.bin into your program.  See `load_and_play` function in [startup.asm](https://github.com/nurpax/c64-sid-edit/blob/master/startup.asm) on how to do this.
 7. In your app init, call `soundfx.init`.  In your raster IRQ, call `soundfx.play` to play the sounds.
