@@ -6,12 +6,27 @@ C64 SID sound editor written in 6510 assembly.
 
 ## How to run:
 
-Compile `startup.asm` and load into VICE C64 emulator.
+Prerequisites: Install KickAssembler.
+
+Compile `startup.asm` and load into VICE C64 emulator:
+
+```
+# Compile
+java cml.kickass.KickAssembler startup.asm -o sidedit.prg
+# Run in VICE
+x64 sidedit.prg
+```
 
 ## How to save and use edited sounds
 
-This program doesn't have a "save" feature.  However, when running in VICE, you can save a snapshot of the C64 state.  This way you can save and load different sounds.
+This program doesn't have a "save" feature.  However, when running in VICE, you can save a snapshot of the C64 state.  This way you can save and load different sounds.  To use the edited sounds in your own program, you need to extract the sound data from a VICE RAM snapshot.  Here's how to do these steps:
 
-To use the edited sounds in your program, link in soundfx.asm and call soundfx.play from your raster interrupt.
+1. Run the editor.  You can load previously edited sound data by loading in a VICE snapshot.
+2. Edit sounds.
+3. Save a snapshot (on Mac, press F12 to open VICE menu, Select "Snapshot", hit "Quicksave snapshot.svf".)
+4. `snapshot.svg` now contains full machine state, including C64 RAM.
+5. Extract sounds from snapshot.svf: run "stack runghc GrabSounds.hs".  This will load `snapshot.svf` and store the edited sound parameters into sounds.bin.
+6. Import the sounds.bin into your program.  See `load_and_play` function in [startup.asm](https://github.com/nurpax/c64-sid-edit/blob/master/startup.asm) on how to do this.
+7. In your app init, call `soundfx.init`.  In your raster IRQ, call `soundfx.play` to play the sounds.
 
-You will also need to grab the edited sound parameters from a saved VICE snapshot.  Use the Haskell GrabSounds.hs module for that.
+See [Stack Homepage](https://docs.haskellstack.org/en/stable/README/) on how to install the `stack` command used to compile & run `GrabSounds.hs`.
