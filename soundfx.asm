@@ -37,7 +37,6 @@ reset_voice: {
 
 // Call this from a raster IRQ
 play: {
-    ldy #0
     lda effect      // LOAD FX NUMBER
     cmp #128        // 128 MEANS NO NEW EFFECT NUMBER WAS ASK FOR
     beq playsounds // PLAY SOUNDS
@@ -45,6 +44,7 @@ play: {
 // PLAY SOUNDS
 playsounds:
     lda voiceparams     // CHECK IF SOUND IS STILL PLAYING
+    tax
     cmp #128            // 128 MEANS NO
     beq done
     jmp continuesound
@@ -63,7 +63,7 @@ resetsound:
     // CHECK IF WE CAN OVER WRITE A SOUND THAT IS ALLREADY PLAYING
     lda iwrite,x       // LOAD REWRITE FLAG
     cmp #1             // IF ONE THEN WE MUST WAIT FOR SOUND TO STOP
-    beq playsounds    // GO TO PLAY SOUNDS
+    beq playsounds
 
 miss2:
     // word sized:
@@ -104,11 +104,11 @@ miss2:
     lsr
     tax
 
-    lda iatdk,x        // LOAD THE ATDK VALUES
-    sta sidvregs+5        // WRITE TO SID CHIP
+    lda iatdk,x
+    sta sidvregs+5
 
-    lda isurl,x        // LOAD THE SUSAIN /RELEASE VALUES
-    sta sidvregs+6        // WRITE TO SID CHIP
+    lda isurl,x
+    sta sidvregs+6
 
     // SET FILTER MODE
     lda ifilterl       // LOW BYTE OF FILTER FREQUENCY VALUE
@@ -129,33 +129,36 @@ miss2:
     sta sidvregs+4     // WRITE TO SID CHIP CONTROL REGISTER
     lda #0
     sta voiceparams    // SET TO ZERO FOR SOUND RUNNING
+    stx voiceparams+1  // which soundfx are we playing, needed to set the gate bit for CR
     lda #128
     sta effect         // CLEAR THE FX NUMBER
     jmp playsounds
 
 // CONTINUE WITH SOUND FX
 continuesound:
-    lda voiceparams+5  // HOW LONG SOUND SHOULD PLAY FOR
-    cmp #0              // SHOULD SOUND STOP
-    bne minusone       // NO
-    lda #0
-    sta sidvregs+4         // CLEAR SID VOICE CONTROL REGISTER
+    lda voiceparams+5
+    cmp #0             // should sound stop?
+    bne minusone
+    ldx voiceparams+1
+    lda icreg,x
+    and #$fe           // clear gate to start release phase
+    sta sidvregs+4
     lda #128
-    sta voiceparams    // SET THE FX NUMBER WE WHERE PLAYING BACK TO 128
-    jmp done      // QUIT BACK TO PLAY SOUNDS
+    sta voiceparams
+    jmp done
 
 minusone:
-    sec                 // REMOVE ONE FROM voiceparams+5
+    sec
     lda voiceparams+5
     sbc #1
     sta voiceparams+5
 
-    lda voiceparams+2  // CHECK STEP VALUE
-    cmp #0              // IS IT ZERO
-    bne stepit         // NO SO GO TO STEP FREQUENCY VALUE
-    jmp done      // QUIT BACK TO PLAY SOUNDS
+    // step value
+    lda voiceparams+2
+    cmp #0
+    bne stepit
+    jmp done
 
-// TODO TODO this doesnt work
 stepit:
     // CHANGE FREQ VALUE OF SOUND
     lda voiceparams+4
@@ -193,7 +196,7 @@ sound_begin:
 // VOICE 1
 voiceparams:
     .byte 128     // 0   128 MEANING NO SOUND FX IS BEING USED
-    .byte 0       // 1   VOICE NUMBER BEING USED
+    .byte 0       // 1   soundfx idx
     .byte 0       // 2   frequency step
     .byte 0       // 3   frequency step
     .byte 0       // 4   ARE WE ADDING A STEP FREQUENCY VALUE
